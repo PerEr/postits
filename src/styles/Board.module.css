@@ -1,0 +1,16 @@
+.board {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.1s ease-out; /* Smoother transition for zoom and pan */
+  pointer-events: auto; /* Changed to auto to capture mouse events on the board */
+  transform-origin: 0 0; /* Ensure scaling happens from top-left */
+  will-change: transform; /* Optimize for transform changes */
+}
+
+/* But notes need to receive events */
+.board > * {
+  pointer-events: auto;
+}

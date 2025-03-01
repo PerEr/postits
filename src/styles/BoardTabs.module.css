@@ -1,0 +1,86 @@
+.tabsContainer {
+  display: flex;
+  background-color: #333;
+  border-bottom: 1px solid #555;
+  padding: 0 5px;
+  overflow-x: auto;
+  max-width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+.tab {
+  padding: 10px 15px;
+  margin: 0 3px;
+  background-color: #444;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  border-radius: 5px 5px 0 0;
+  position: relative;
+}
+
+.tab:hover {
+  background-color: #555;
+  color: white;
+}
+
+.tab.active {
+  background-color: #555;
+  border-bottom: 3px solid #ffd700;
+  color: white;
+}
+
+.addButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 15px;
+  margin: 0 3px;
+  background-color: #555;
+  border: none;
+  color: #ffd700;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  border-radius: 5px 5px 0 0;
+}
+
+.addButton:hover {
+  background-color: #666;
+  color: white;
+}
+
+.closeButton {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 14px;
+  padding: 0px 5px;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.closeButton:hover {
+  color: white;
+  background-color: rgba(255, 0, 0, 0.5);
+}
+
+/* Make space for the tabs at the top of the screen */
+.spacer {
+  height: 50px;
+  width: 100%;
+}

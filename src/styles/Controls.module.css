@@ -1,0 +1,151 @@
+.controls {
+  position: fixed;
+  top: 60px; /* Space for tabs */
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  z-index: 100;
+  pointer-events: none; /* Allow clicks to pass through the controls container */
+}
+
+.controls > * {
+  pointer-events: auto; /* Re-enable pointer events for direct children */
+}
+
+.buttonGroup {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.clearButton, .addButton, .panButton, .groupButton, .ungroupButton {
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.clearButton {
+  background-color: #ff6b6b;
+}
+
+.clearButton:hover {
+  background-color: #ff5252;
+}
+
+.addButton {
+  background-color: #4CAF50;
+  margin-left: 8px;
+}
+
+.addButton:hover {
+  background-color: #3e8e41;
+}
+
+.panButton {
+  background-color: #2196F3;
+  margin-left: 8px;
+}
+
+.panButton:hover {
+  background-color: #0b7dda;
+}
+
+/* Selection controls */
+.selectionControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.selectionInfo {
+  color: white;
+  font-size: 14px;
+  margin-right: 8px;
+}
+
+.groupButton {
+  background-color: #9c27b0; /* Purple */
+  margin-right: 4px;
+}
+
+.groupButton:hover {
+  background-color: #7b1fa2;
+}
+
+.ungroupButton {
+  background-color: #ff9800; /* Orange */
+}
+
+.ungroupButton:hover {
+  background-color: #f57c00;
+}
+
+.zoomControls {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  padding: 3px;
+}
+
+.zoomButton {
+  width: 25px;
+  height: 25px;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.zoomButton:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.zoomResetButton {
+  background: none;
+  border: none;
+  color: white;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.helpText {
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.debugInfo {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: right;
+}

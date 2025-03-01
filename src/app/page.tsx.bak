@@ -1,0 +1,384 @@
+// src/app/page.tsx
+'use client';
+
+import { useCallback } from 'react';
+
+// Import custom hooks
+import {
+  useBrowserDetection,
+  useBoard,
+  useNotes,
+  useEditingMode,
+  useNoteDragging
+} from '../hooks';
+
+// Import components
+import {
+  Board,
+  Controls,
+} from '../components';
+import { LoadingScreen } from '../components/LoadingScreen';
+
+// Import styles
+import styles from '../styles/Main.module.css';
+
+// Main application component
+
+export default function Home() {
+  const [notes, setNotes] = useState<Note[]>([])
+  const [draggedNote, setDraggedNote] = useState<{ id: number, startX: number, startY: number } | null>(null)
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+  const editInputRef = useRef<HTMLTextAreaElement>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isBrowser, setIsBrowser] = useState(false)
+  // Add state for board panning
+  const [isPanning, setIsPanning] = useState(false)
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 })
+  const [boardOffset, setBoardOffset] = useState({ x: 0, y: 0 })
+  
+  // This effect runs once to determine if we're in a browser environment
+  // Next.js can run code on the server where localStorage isn't available
+  useEffect(() => {
+    setIsBrowser(true)
+  }, [])
+
+  // Load notes and board position from localStorage on initial render
+  useEffect(() => {
+    // Only attempt to load from localStorage when we know we're in the browser
+    if (isBrowser) {
+      try {
+        // Load notes
+        const savedNotes = localStorage.getItem(STORAGE_KEY);
+        if (savedNotes) {
+          const parsedNotes = JSON.parse(savedNotes);
+          console.log('Loading saved notes:', parsedNotes);
+          setNotes(parsedNotes);
+        } else {
+          console.log('No saved notes found in localStorage');
+        }
+        
+        // Load board position
+        const savedBoardOffset = localStorage.getItem(STORAGE_KEY + '-offset');
+        if (savedBoardOffset) {
+          const parsedOffset = JSON.parse(savedBoardOffset);
+          console.log('Loading saved board offset:', parsedOffset);
+          setBoardOffset(parsedOffset);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [isBrowser]); // Only run this effect when isBrowser changes (once)
+
+  // Save notes to localStorage whenever they change
+  useEffect(() => {
+    if (isBrowser) {
+      try {
+        // Skip saving on initial render with empty notes
+        if (notes.length > 0 || localStorage.getItem(STORAGE_KEY)) {
+          console.log('Saving notes to localStorage:', notes);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+        }
+      } catch (error) {
+        console.error('Failed to save notes:', error);
+      }
+    }
+  }, [notes, isBrowser]);
+  
+  // Save board offset to localStorage whenever it changes
+  useEffect(() => {
+    if (isBrowser) {
+      try {
+        console.log('Saving board offset to localStorage:', boardOffset);
+        localStorage.setItem(STORAGE_KEY + '-offset', JSON.stringify(boardOffset));
+      } catch (error) {
+        console.error('Failed to save board offset:', error);
+      }
+    }
+  }, [boardOffset, isBrowser]);
+
+  // Function to add a new note at the clicked position
+  const addNote = useCallback((x: number, y: number) => {
+    // Get the note's exact dimensions for precise centering
+    const NOTE_WIDTH = 200;
+    const NOTE_HEIGHT = 200;
+    
+    // Log all coordinates for debugging
+    console.log('Click detected at:', { x, y });
+    console.log('Calculated note position:', { 
+      noteX: Math.max(0, x - (NOTE_WIDTH / 2)),
+      noteY: Math.max(0, y - (NOTE_HEIGHT / 2))
+    });
+    
+    const newNote: Note = {
+      id: Date.now(),
+      text: 'New Note',
+      // Place the note centered exactly on the mouse click
+      x: Math.max(0, x - (NOTE_WIDTH / 2)),
+      y: Math.max(0, y - (NOTE_HEIGHT / 2)),
+    }
+    
+    console.log('Adding note with final position:', { 
+      noteId: newNote.id,
+      noteX: newNote.x, 
+      noteY: newNote.y 
+    });
+    
+    setNotes(prevNotes => [...prevNotes, newNote])
+  }, [])
+
+  const updateNotePosition = useCallback((id: number, x: number, y: number) => {
+    setNotes(prevNotes => prevNotes.map(note => 
+      note.id === id ? { ...note, x, y } : note
+    ))
+  }, [])
+
+  const handleDragStart = useCallback((e: React.MouseEvent, id: number) => {
+    e.stopPropagation()
+    // Use client coordinates for dragging
+    setDraggedNote({ id, startX: e.clientX, startY: e.clientY })
+  }, [])
+
+  const handleDrag = useCallback((e: React.MouseEvent) => {
+    if (draggedNote) {
+      // Calculate how far the mouse has moved since drag started
+      const dx = e.clientX - draggedNote.startX
+      const dy = e.clientY - draggedNote.startY
+      
+      const note = notes.find(n => n.id === draggedNote.id)
+      if (note) {
+        // Update the note position by the amount the mouse has moved
+        updateNotePosition(draggedNote.id, note.x + dx, note.y + dy)
+        // Update the reference point for the next drag event
+        setDraggedNote({ ...draggedNote, startX: e.clientX, startY: e.clientY })
+      }
+    }
+  }, [draggedNote, notes, updateNotePosition])
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedNote(null)
+  }, [])
+
+  // Handle double-click to add a new note
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    console.log('Double click detected!');
+    console.log('Event target:', e.target);
+    console.log('Current target:', e.currentTarget);
+    
+    // Only add note if double-clicking directly on the board or main element
+    if (e.target === e.currentTarget) {
+      // Get the bounding rectangle of the container
+      const rect = e.currentTarget.getBoundingClientRect();
+      
+      // Calculate position relative to container and adjusted for board offset
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // If the event originated on the board element, we don't need to adjust for offset
+      // as it's already positioned with transform
+      const finalX = e.currentTarget.className.includes('board') ? x : x - boardOffset.x;
+      const finalY = e.currentTarget.className.includes('board') ? y : y - boardOffset.y;
+      
+      console.log('Adding note at position:', { finalX, finalY });
+      
+      // Add the note at the calculated position
+      addNote(finalX, finalY);
+      
+      // Prevent event from bubbling to avoid double triggering
+      e.stopPropagation();
+    }
+  }, [addNote, boardOffset])
+  
+  // Start panning the board on mouse down
+  const handlePanStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Only start panning if clicking directly on the main element (not on notes or controls)
+    if (e.target === e.currentTarget) {
+      console.log('Pan start detected');
+      console.log('Target:', e.target);
+      console.log('Current target:', e.currentTarget);
+      
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+      console.log('Set pan start:', { x: e.clientX, y: e.clientY });
+      
+      // Prevent default behavior
+      e.preventDefault();
+    }
+  }, [])
+  
+  // Pan the board while mouse is moving
+  const handlePan = useCallback((e: React.MouseEvent) => {
+    if (isPanning) {
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      
+      // Add console logs to debug panning
+      console.log('Panning:', { 
+        isPanning,
+        dx, 
+        dy, 
+        clientX: e.clientX, 
+        clientY: e.clientY,
+        startX: panStart.x,
+        startY: panStart.y
+      });
+      
+      setBoardOffset(prev => {
+        const newOffset = {
+          x: prev.x + dx,
+          y: prev.y + dy
+        };
+        console.log('New board offset:', newOffset);
+        return newOffset;
+      });
+      
+      setPanStart({ x: e.clientX, y: e.clientY });
+    }
+  }, [isPanning, panStart])
+  
+  // Stop panning on mouse up
+  const handlePanEnd = useCallback(() => {
+    setIsPanning(false);
+  }, [])
+
+  const startEditing = useCallback((id: number) => {
+    setEditingNoteId(id)
+  }, [])
+
+  const handleNoteTextChange = useCallback((id: number, newText: string) => {
+    setNotes(prevNotes => prevNotes.map(note =>
+      note.id === id ? { ...note, text: newText } : note
+    ))
+  }, [])
+
+  const stopEditing = useCallback(() => {
+    setEditingNoteId(null)
+  }, [])
+  
+  const deleteNote = useCallback((id: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setNotes(prevNotes => prevNotes.filter(note => note.id !== id))
+  }, [])
+
+  useEffect(() => {
+    if (editingNoteId && editInputRef.current) {
+      editInputRef.current.focus()
+    }
+  }, [editingNoteId])
+
+  // Function to clear all notes
+  const clearAllNotes = useCallback(() => {
+    if (window.confirm('Are you sure you want to delete all notes?')) {
+      setNotes([]);
+    }
+  }, []);
+
+  // Create a function for testing double-click - define at the component level
+  // not inside conditional rendering
+  const testDoubleClick = useCallback(() => {
+    console.log('Testing add note...');
+    // Add a note in the center of the board
+    addNote(window.innerWidth / 2, window.innerHeight / 2);
+  }, [addNote]);
+  
+  // Add a test function for moving the board
+  const testPanning = useCallback(() => {
+    console.log('Testing panning...');
+    console.log('Current board offset:', boardOffset);
+    // Move the board a fixed amount
+    setBoardOffset(prev => ({
+      x: prev.x + 100,
+      y: prev.y + 100
+    }));
+  }, [boardOffset]);
+  
+  // Display loading state if we're still initializing
+  if (isLoading) {
+    return <div className={styles.loading}>Loading notes...</div>;
+  }
+  
+  // Don't render anything until we know we're in the browser
+  // This prevents server/client hydration mismatches
+  if (!isBrowser) {
+    return null;
+  }
+
+  return (
+    <main 
+      className={styles.main} 
+      onMouseMove={(e) => {
+        // Handle both note dragging and board panning
+        handleDrag(e);
+        handlePan(e);
+      }}
+      onMouseUp={() => {
+        // End both note dragging and board panning
+        handleDragEnd();
+        handlePanEnd();
+      }}
+      onMouseDown={(e) => {
+        console.log('Main onMouseDown triggered');
+        handlePanStart(e);
+      }}
+      onDoubleClick={handleDoubleClick}
+    >
+      <div className={styles.controls}>
+        <button className={styles.clearButton} onClick={clearAllNotes}>
+          Clear All Notes
+        </button>
+        <button className={styles.addButton} onClick={testDoubleClick}>
+          Add Note (Test)
+        </button>
+        <button className={styles.panButton} onClick={testPanning}>
+          Pan Board (Test)
+        </button>
+        <div className={styles.helpText}>Double-click to add a note, click and drag to pan</div>
+        <div className={styles.debugInfo}>
+          Board offset: x={boardOffset.x.toFixed(0)}, y={boardOffset.y.toFixed(0)}
+        </div>
+      </div>
+
+      <div 
+        className={styles.board}
+        style={{ 
+          transform: `translate(${boardOffset.x}px, ${boardOffset.y}px)` 
+        }}
+        onDoubleClick={handleDoubleClick}
+      >
+        {notes.map(note => (
+          <div
+            key={note.id}
+            className={styles.note}
+            style={{ left: note.x, top: note.y }}
+            onMouseDown={(e) => {
+              e.stopPropagation(); // Prevent board panning when interacting with notes
+              handleDragStart(e, note.id);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.deleteButton} onClick={(e) => deleteNote(note.id, e)}>✕</div>
+            {editingNoteId === note.id ? (
+              <textarea
+                ref={editInputRef}
+                className={styles.noteInput}
+                value={note.text}
+                onChange={(e) => handleNoteTextChange(note.id, e.target.value)}
+                onBlur={stopEditing}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    stopEditing()
+                  }
+                }}
+              />
+            ) : (
+              <div onClick={() => startEditing(note.id)}>{note.text}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </main>
+  )
+}

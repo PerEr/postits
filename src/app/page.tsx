@@ -1,113 +1,303 @@
-import Image from "next/image";
+// src/app/page.tsx
+'use client';
+
+import { useCallback } from 'react';
+
+// Import custom hooks
+import {
+  useBrowserDetection,
+  useBoard,
+  useNotes,
+  useEditingMode,
+  useNoteDragging,
+  useBoards,
+  useNoteSelection
+} from '../hooks';
+
+// Import components
+import {
+  Board,
+  Controls,
+  LoadingScreen,
+  BoardTabs
+} from '../components';
+
+// Import styles
+import styles from '../styles/Main.module.css';
 
 export default function Home() {
+  // Initialize browser detection (needed for localStorage)
+  const isBrowser = useBrowserDetection();
+  
+  // Initialize boards functionality
+  const {
+    boards,
+    activeBoardId,
+    isLoading: isBoardsLoading,
+    addBoard,
+    deleteBoard,
+    renameBoard,
+    switchBoard,
+    updateBoardState,
+    getActiveBoard
+  } = useBoards(isBrowser);
+  
+  // Get the active board
+  const activeBoard = getActiveBoard();
+  
+  // Initialize notes functionality
+  const {
+    notes,
+    isLoading: isNotesLoading,
+    addNote,
+    updateNotePosition,
+    updateNoteText,
+    updateNoteColor,
+    deleteNote,
+    clearAllNotes,
+    updateNotes,
+    availableColors,
+    getRandomColor
+  } = useNotes(isBrowser, activeBoardId);
+  
+  // Initialize note selection functionality
+  const {
+    selectedNoteIds,
+    selectionArea,
+    toggleNoteSelection,
+    clearSelection,
+    startAreaSelection,
+    updateAreaSelection,
+    completeAreaSelection,
+    cancelAreaSelection,
+    groupSelectedNotes,
+    ungroupSelectedNotes,
+    getRelatedNoteIds
+  } = useNoteSelection(notes, updateNotes);
+  
+  // Initialize board functionality
+  const {
+    boardOffset,
+    boardZoom,
+    handlePanStart,
+    handlePan,
+    handlePanEnd,
+    handleZoom,
+    moveBoardBy,
+    setZoomLevel,
+    resetZoom
+  } = useBoard(
+    isBrowser, 
+    activeBoard?.state || { offset: { x: 0, y: 0 }, zoom: 1.0 },
+    (newState) => activeBoard && updateBoardState(activeBoard.id, newState)
+  );
+  
+  // Initialize editing functionality
+  const {
+    editingNoteId,
+    editInputRef,
+    startEditing,
+    stopEditing
+  } = useEditingMode();
+  
+  // Initialize note dragging functionality
+  const {
+    handleDragStart,
+    handleDrag,
+    handleDragEnd
+  } = useNoteDragging(notes, updateNotePosition, boardZoom, getRelatedNoteIds);
+  
+  // Handle double-click to add a new note
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    console.log('Double click detected!');
+    
+    // Only add note if double-clicking directly on the board or main element
+    if (e.target === e.currentTarget) {
+      // Clear any existing selection
+      clearSelection();
+      
+      // Get the bounding rectangle of the container
+      const rect = e.currentTarget.getBoundingClientRect();
+      
+      // Calculate position relative to container
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // If the event originated on the board element, we don't need to adjust for offset
+      // as it's already positioned with transform
+      const finalX = e.currentTarget.className.includes('board') ? x : x - boardOffset.x;
+      const finalY = e.currentTarget.className.includes('board') ? y : y - boardOffset.y;
+      
+      // Adjust the position based on zoom level
+      const adjustedX = finalX / boardZoom;
+      const adjustedY = finalY / boardZoom;
+      
+      console.log('Adding note at position:', { adjustedX, adjustedY });
+      
+      // Add the note at the calculated position
+      addNote(adjustedX, adjustedY);
+      
+      // Prevent event from bubbling to avoid double triggering
+      e.stopPropagation();
+    }
+  }, [addNote, boardOffset, boardZoom, clearSelection]);
+  
+  // Add a test note in the center of the screen with a random color
+  const testAddNote = useCallback(() => {
+    console.log('Testing add note...');
+    addNote(window.innerWidth / 2, window.innerHeight / 2, getRandomColor());
+  }, [addNote, getRandomColor]);
+  
+  // Test moving the board
+  const testPanBoard = useCallback(() => {
+    console.log('Testing panning...');
+    moveBoardBy(100, 100);
+  }, [moveBoardBy]);
+  
+  // Zoom controls
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel(boardZoom + 0.1);
+  }, [boardZoom, setZoomLevel]);
+  
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel(boardZoom - 0.1);
+  }, [boardZoom, setZoomLevel]);
+  
+  // Display loading state
+  if (isBoardsLoading || isNotesLoading) {
+    return <LoadingScreen />;
+  }
+  
+  // Prevent hydration issues
+  if (!isBrowser) {
+    return null;
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <main 
+      className={styles.main} 
+      onMouseMove={(e) => {
+        handleDrag(e);
+        handlePan(e);
+        
+        // Update area selection if active
+        if (selectionArea?.isSelecting) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          // Calculate board-space coordinates
+          const x = (e.clientX - rect.left - boardOffset.x) / boardZoom;
+          const y = (e.clientY - rect.top - boardOffset.y) / boardZoom;
+          
+          updateAreaSelection(x, y);
+        }
+      }}
+      onMouseUp={(e) => {
+        handleDragEnd();
+        handlePanEnd();
+        
+        // Complete area selection if active
+        if (selectionArea?.isSelecting) {
+          completeAreaSelection(e.shiftKey || e.ctrlKey || e.metaKey);
+        }
+      }}
+      onMouseDown={(e) => {
+        console.log('Main onMouseDown triggered');
+        
+        // Handle area selection or panning based on mouse button
+        if (e.button === 0) {  // Left click
+          // If clicked directly on the main element (not on a note or control)
+          if (e.target === e.currentTarget) {
+            // Start area selection instead of just clearing
+            const rect = e.currentTarget.getBoundingClientRect();
+            // Calculate board-space coordinates by accounting for zoom and offset
+            const x = (e.clientX - rect.left - boardOffset.x) / boardZoom;
+            const y = (e.clientY - rect.top - boardOffset.y) / boardZoom;
+            
+            console.log('Starting area selection from main at:', { x, y });
+            startAreaSelection(x, y);
+          }
+        } else if (e.button === 2) {  // Right click
+          // Use right click for panning
+          handlePanStart(e);
+        }
+      }}
+      onDoubleClick={handleDoubleClick}
+      onWheel={handleZoom}
+      onContextMenu={(e) => e.preventDefault()} // Prevent context menu on right-click
+    >
+      <BoardTabs 
+        boards={boards}
+        activeBoardId={activeBoardId}
+        onSwitchBoard={switchBoard}
+        onAddBoard={addBoard}
+        onDeleteBoard={deleteBoard}
+        onRenameBoard={renameBoard}
+      />
+      
+      <Controls
+        boardOffset={boardOffset}
+        boardZoom={boardZoom}
+        selectedNoteCount={selectedNoteIds.length}
+        onClearAllNotes={clearAllNotes}
+        onAddTestNote={testAddNote}
+        onPanTestBoard={testPanBoard}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={resetZoom}
+        onGroupNotes={groupSelectedNotes}
+        onUngroupNotes={ungroupSelectedNotes}
+      />
+
+      {/* Render the SelectionArea component directly in the main container when active */}
+      {selectionArea && (
+        <div 
+          style={{
+            position: 'absolute',
+            zIndex: 9999,
+            pointerEvents: 'none',
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: `${boardOffset.x + selectionArea.startX * boardZoom}px`,
+              top: `${boardOffset.y + selectionArea.startY * boardZoom}px`,
+              width: `${(selectionArea.endX - selectionArea.startX) * boardZoom}px`,
+              height: `${(selectionArea.endY - selectionArea.startY) * boardZoom}px`,
+              backgroundColor: 'rgba(65, 105, 225, 0.2)',
+              border: '1px solid royalblue',
+              pointerEvents: 'none'
+            }}
+          />
         </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+      )}
+      
+      <Board
+        boardOffset={boardOffset}
+        boardZoom={boardZoom}
+        notes={notes}
+        availableColors={availableColors}
+        editingNoteId={editingNoteId}
+        selectedNoteIds={selectedNoteIds}
+        selectionArea={null} /* Don't render selection area in Board anymore */
+        editInputRef={editInputRef}
+        onDoubleClick={handleDoubleClick}
+        onDragStart={handleDragStart}
+        onNoteTextChange={updateNoteText}
+        onNoteColorChange={updateNoteColor}
+        onDeleteNote={deleteNote}
+        onStartEditing={startEditing}
+        onStopEditing={stopEditing}
+        onWheel={handleZoom}
+        onSelectNote={toggleNoteSelection}
+        onStartAreaSelection={startAreaSelection}
+        onUpdateAreaSelection={updateAreaSelection}
+        onCompleteAreaSelection={completeAreaSelection}
+        onCancelAreaSelection={cancelAreaSelection}
+      />
     </main>
   );
 }

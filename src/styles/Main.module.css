@@ -1,0 +1,24 @@
+.main {
+  min-height: 100vh;
+  width: 100vw;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  background-color: #f0f0f0; /* Light gray background */
+  cursor: default; /* Default cursor most of the time */
+  
+  /* Add a subtle grid background pattern */
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  
+  /* Critical for handling wheel events */
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* Apply grab cursor only when right button is pressed */
+.main:active {
+  cursor: grabbing; /* Change cursor when actively panning */
+}
