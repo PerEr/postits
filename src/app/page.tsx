@@ -13,13 +13,17 @@ import {
   useBoards,
   useNoteSelection
 } from '../hooks';
+import { useAuth } from '../contexts/AuthContext';
 
 // Import components
 import {
   Board,
   Controls,
   LoadingScreen,
-  BoardTabs
+  BoardTabs,
+  ProtectedRoute,
+  UserProfile,
+  WelcomeMessage
 } from '../components';
 
 // Import styles
@@ -163,20 +167,40 @@ export default function Home() {
     setZoomLevel(boardZoom - 0.1);
   }, [boardZoom, setZoomLevel]);
   
+  // Access auth context first to make sure it's being initialized
+  const { signOut, user, isLoading: authLoading } = useAuth();
+  
+  console.log('Home page render - Auth state:', { user, authLoading });
+  console.log('Home page render - Board/Notes loading:', { isBoardsLoading, isNotesLoading });
+
+  // Handle sign out
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+  }, [signOut]);
+
   // Display loading state
   if (isBoardsLoading || isNotesLoading) {
+    console.log('Loading boards or notes...');
     return <LoadingScreen />;
   }
   
   // Prevent hydration issues
   if (!isBrowser) {
+    console.log('Server-side rendering, returning null');
     return null;
   }
 
+  // Let's create a direct entry point that bypasses the loading checks
+  // This allows the ProtectedRoute to handle auth and redirection
   return (
-    <main 
-      className={styles.main} 
-      onMouseMove={(e) => {
+    <ProtectedRoute>
+      {authLoading ? (
+        <LoadingScreen />
+      ) : (
+        <>
+        <main 
+          className={styles.main} 
+        onMouseMove={(e) => {
         handleDrag(e);
         handlePan(e);
         
@@ -224,14 +248,20 @@ export default function Home() {
       onWheel={handleZoom}
       onContextMenu={(e) => e.preventDefault()} // Prevent context menu on right-click
     >
-      <BoardTabs 
-        boards={boards}
-        activeBoardId={activeBoardId}
-        onSwitchBoard={switchBoard}
-        onAddBoard={addBoard}
-        onDeleteBoard={deleteBoard}
-        onRenameBoard={renameBoard}
-      />
+      <div className={styles.header}>
+        <BoardTabs 
+          boards={boards}
+          activeBoardId={activeBoardId}
+          onSwitchBoard={switchBoard}
+          onAddBoard={addBoard}
+          onDeleteBoard={deleteBoard}
+          onRenameBoard={renameBoard}
+        />
+        <div className={styles.headerRight}>
+          <UserProfile />
+        </div>
+      </div>
+      <div className={styles.headerSpacer}></div>
       
       <Controls
         boardOffset={boardOffset}
@@ -299,5 +329,9 @@ export default function Home() {
         onCancelAreaSelection={cancelAreaSelection}
       />
     </main>
+          <WelcomeMessage />
+        </>
+      )}
+    </ProtectedRoute>
   );
 }

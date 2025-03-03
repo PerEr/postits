@@ -1,0 +1,66 @@
+.container {
+  position: relative;
+  margin-left: 10px;
+  z-index: 1001; /* Ensure it's above other elements */
+}
+
+.profileButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #ffd700;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dropdown {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 16px;
+  min-width: 200px;
+  z-index: 2000; /* Ensure dropdown is above everything */
+}
+
+.userInfo {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.signOutButton {
+  background-color: #f5f5f5;
+  color: #333;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  width: 100%;
+  text-align: left;
+}
+
+.signOutButton:hover {
+  background-color: #e5e5e5;
+}

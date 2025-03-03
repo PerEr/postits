@@ -22,3 +22,38 @@
 .main:active {
   cursor: grabbing; /* Change cursor when actively panning */
 }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  z-index: 1000;
+  padding: 0;
+  box-sizing: border-box;
+  background-color: #333;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 41px; /* Match the height of the tabs */
+  border-bottom: 1px solid #555;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 15px;
+  min-width: 50px;
+  max-width: 50px; /* Limit the size */
+  background-color: #333;
+  position: relative; /* Ensure it's in the flow */
+  height: 41px;
+  flex-shrink: 0; /* Prevent this from shrinking */
+}
+
+.headerSpacer {
+  height: 41px; /* Match the height of the header */
+  width: 100%;
+}

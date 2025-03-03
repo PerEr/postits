@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Note } from '../types';
-
-const STORAGE_KEY = 'postit-notes';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../utils/supabase';
 
 // Define available colors for notes
 const NOTE_COLORS = [
@@ -18,27 +18,55 @@ const NOTE_COLORS = [
 export function useNotes(isBrowser: boolean, activeBoardId: string) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
 
-  // Load notes from localStorage on initial render
+  // Load notes from Supabase on initial render or when active board changes
   useEffect(() => {
-    if (isBrowser) {
+    async function loadNotes() {
+      console.log('useNotes: loadNotes called', { isBrowser, user, activeBoardId });
+      
+      if (!isBrowser) {
+        console.log('useNotes: Skipping load - not in browser');
+        return;
+      }
+      
+      if (!user) {
+        console.log('useNotes: No user yet, will load data after auth');
+        setIsLoading(false); // Don't keep the loading state active
+        return;
+      }
+      
+      if (!activeBoardId) {
+        console.log('useNotes: No active board ID yet');
+        setIsLoading(false);
+        return;
+      }
+      
       try {
-        const savedNotes = localStorage.getItem(STORAGE_KEY);
-        if (savedNotes) {
-          const parsedNotes = JSON.parse(savedNotes);
-          console.log('Loading saved notes:', parsedNotes);
+        console.log('useNotes: Starting to load notes for user', user.id);
+        setIsLoading(true);
+        
+        // Query notes for all boards to keep them cached
+        const { data: notesData, error } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+        
+        if (notesData) {
+          // Map database notes to our application format
+          const mappedNotes: Note[] = notesData.map(note => ({
+            id: note.id,
+            text: note.text,
+            x: note.x,
+            y: note.y,
+            color: note.color,
+            boardId: note.board_id,
+            groupId: note.group_id || undefined
+          }));
           
-          // Handle migration from old format (notes without boardId)
-          const migratedNotes = parsedNotes.map((note: Note) => {
-            if (!note.boardId) {
-              return { ...note, boardId: activeBoardId };
-            }
-            return note;
-          });
-          
-          setNotes(migratedNotes);
-        } else {
-          console.log('No saved notes found in localStorage');
+          setNotes(mappedNotes);
         }
       } catch (error) {
         console.error('Failed to load notes:', error);
@@ -46,79 +74,220 @@ export function useNotes(isBrowser: boolean, activeBoardId: string) {
         setIsLoading(false);
       }
     }
-  }, [isBrowser, activeBoardId]);
 
-  // Save notes to localStorage whenever they change
-  useEffect(() => {
-    if (isBrowser && !isLoading) {
-      // Create a timeout variable
-      const saveTimeout = setTimeout(() => {
-        try {
-          // Skip saving on initial render with empty notes
-          if (notes.length > 0 || localStorage.getItem(STORAGE_KEY)) {
-            console.log('Saving notes to localStorage:', notes);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-          }
-        } catch (error) {
-          console.error('Failed to save notes:', error);
-        }
-      }, 1000); // 1000ms = 1 second delay
-  
-      // Cleanup function to clear timeout if notes change before 1 second
-      return () => clearTimeout(saveTimeout);
-    }
-  }, [notes, isBrowser, isLoading]);
+    loadNotes();
+  }, [isBrowser, user, activeBoardId]);
 
   // Get notes for the current active board
-  const boardNotes = notes.filter(note => note.boardId === activeBoardId);
+  const boardNotes = notes && notes.length > 0 
+    ? notes.filter(note => note.boardId === activeBoardId) 
+    : [];
 
-  const addNote = useCallback((x: number, y: number, color = NOTE_COLORS[0]) => {
-    const NOTE_WIDTH = 200;
-    const NOTE_HEIGHT = 200;
+  // Helper function to add a note to Supabase
+  const addNoteToSupabase = async (note: Note) => {
+    if (!user) return;
     
-    console.log('Adding note at position:', { x, y, color, boardId: activeBoardId });
+    const { error } = await supabase
+      .from('notes')
+      .insert({
+        id: note.id,
+        text: note.text,
+        x: note.x,
+        y: note.y,
+        color: note.color,
+        board_id: note.boardId,
+        group_id: note.groupId || null,
+        user_id: user.id,
+        created_at: new Date().toISOString()
+      });
+      
+    if (error) throw error;
+  };
+
+  const addNote = useCallback(async (x: number, y: number, color = NOTE_COLORS[0]) => {
+    if (!user || !activeBoardId) return;
     
-    const newNote: Note = {
-      id: Date.now(),
-      text: 'New Note',
-      x: x - (NOTE_WIDTH / 2),
-      y: y - (NOTE_HEIGHT / 2),
-      color: color,
-      boardId: activeBoardId
-    };
+    try {
+      const NOTE_WIDTH = 200;
+      const NOTE_HEIGHT = 200;
+      
+      console.log('Adding note at position:', { x, y, color, boardId: activeBoardId });
+      
+      const newNote: Note = {
+        id: Date.now(),
+        text: 'New Note',
+        x: x - (NOTE_WIDTH / 2),
+        y: y - (NOTE_HEIGHT / 2),
+        color: color,
+        boardId: activeBoardId
+      };
+      
+      // Optimistically update local state
+      setNotes(prevNotes => (Array.isArray(prevNotes) ? [...prevNotes, newNote] : [newNote]));
+      
+      // Save to Supabase
+      await addNoteToSupabase(newNote);
+    } catch (error) {
+      console.error('Failed to add note:', error);
+      // Revert optimistic update if save fails
+      setNotes(prevNotes => 
+        Array.isArray(prevNotes) 
+          ? prevNotes.filter(note => note.id !== Date.now())
+          : []);
+    }
+  }, [activeBoardId, user]);
+
+  // Debounced updates to Supabase to prevent too many requests
+  const updateNoteInSupabase = useCallback(async (note: Note) => {
+    if (!user) return;
     
-    setNotes(prevNotes => [...prevNotes, newNote]);
-  }, [activeBoardId]);
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .update({
+          text: note.text,
+          x: note.x,
+          y: note.y,
+          color: note.color,
+          group_id: note.groupId || null,
+          user_id: user.id, // Always ensure user_id is set
+          board_id: note.boardId // Always ensure board_id is set
+        })
+        .eq('id', note.id)
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to update note in Supabase:', error);
+    }
+  }, [user]);
 
   const updateNotePosition = useCallback((id: number, x: number, y: number) => {
-    setNotes(prevNotes => prevNotes.map(note => 
-      note.id === id ? { ...note, x, y } : note
-    ));
-  }, []);
+    if (!user) return;
+    
+    // Update local state immediately
+    setNotes(prevNotes => {
+      if (!Array.isArray(prevNotes)) return [];
+      
+      return prevNotes.map(note => 
+        note.id === id ? { ...note, x, y } : note
+      );
+    });
+    
+    // Then schedule the API update separately
+    const updateTimeout = setTimeout(() => {
+      // Find the note with the updated position
+      const noteToUpdate = notes.find(note => note.id === id);
+      if (noteToUpdate) {
+        // Make a copy with the new position before sending to API
+        const updatedNote = { ...noteToUpdate, x, y };
+        updateNoteInSupabase(updatedNote);
+      }
+    }, 1000);
+    
+    // Clean up timeout on next call
+    return () => clearTimeout(updateTimeout);
+  }, [user, updateNoteInSupabase, notes]);
 
   const updateNoteText = useCallback((id: number, text: string) => {
-    setNotes(prevNotes => prevNotes.map(note =>
-      note.id === id ? { ...note, text } : note
-    ));
-  }, []);
+    if (!user) return;
+    
+    // Update local state first
+    setNotes(prevNotes => {
+      if (!Array.isArray(prevNotes)) return [];
+      
+      return prevNotes.map(note =>
+        note.id === id ? { ...note, text } : note
+      );
+    });
+    
+    // Then schedule the API update separately
+    const updateTimeout = setTimeout(() => {
+      // Find the note with the updated text
+      const noteToUpdate = notes.find(note => note.id === id);
+      if (noteToUpdate) {
+        // Make a copy with the new text before sending to API
+        const updatedNote = { ...noteToUpdate, text };
+        updateNoteInSupabase(updatedNote);
+      }
+    }, 1000);
+    
+    // Clean up timeout on next call
+    return () => clearTimeout(updateTimeout);
+  }, [user, updateNoteInSupabase, notes]);
 
-  const deleteNote = useCallback((id: number) => {
-    setNotes(prevNotes => prevNotes.filter(note => note.id !== id));
-  }, []);
-
-  const clearAllNotes = useCallback(() => {
-    if (window.confirm(`Are you sure you want to delete all notes from this board?`)) {
-      // Only clear notes from the current board
-      setNotes(prevNotes => prevNotes.filter(note => note.boardId !== activeBoardId));
+  const deleteNote = useCallback(async (id: number) => {
+    if (!user) return;
+    
+    try {
+      // Optimistically update local state
+      setNotes(prevNotes => 
+        Array.isArray(prevNotes) 
+          ? prevNotes.filter(note => note.id !== id) 
+          : []);
+      
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('notes')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      // Could potentially revert the optimistic update here
     }
-  }, [activeBoardId]);
+  }, [user]);
+
+  const clearAllNotes = useCallback(async () => {
+    if (!user || !activeBoardId) return;
+    
+    if (window.confirm(`Are you sure you want to delete all notes from this board?`)) {
+      try {
+        // Optimistically update local state
+        setNotes(prevNotes => 
+          Array.isArray(prevNotes) 
+            ? prevNotes.filter(note => note.boardId !== activeBoardId) 
+            : []);
+        
+        // Delete from Supabase
+        const { error } = await supabase
+          .from('notes')
+          .delete()
+          .eq('board_id', activeBoardId)
+          .eq('user_id', user.id);
+          
+        if (error) throw error;
+      } catch (error) {
+        console.error('Failed to clear notes:', error);
+        // Could potentially revert the optimistic update here
+      }
+    }
+  }, [activeBoardId, user]);
 
   // Add function to change note color
   const updateNoteColor = useCallback((id: number, color: string) => {
-    setNotes(prevNotes => prevNotes.map(note =>
-      note.id === id ? { ...note, color } : note
-    ));
-  }, []);
+    if (!user) return;
+    
+    // Update local state first
+    setNotes(prevNotes => {
+      if (!Array.isArray(prevNotes)) return [];
+      
+      return prevNotes.map(note =>
+        note.id === id ? { ...note, color } : note
+      );
+    });
+    
+    // Then update in Supabase separately
+    setTimeout(() => {
+      const noteToUpdate = notes.find(note => note.id === id);
+      if (noteToUpdate) {
+        const updatedNote = { ...noteToUpdate, color };
+        updateNoteInSupabase(updatedNote);
+      }
+    }, 100);
+  }, [user, updateNoteInSupabase, notes]);
   
   // Helper function to get a random color for variety
   const getRandomColor = useCallback(() => {
@@ -126,20 +295,48 @@ export function useNotes(isBrowser: boolean, activeBoardId: string) {
   }, []);
 
   // Function to update multiple notes at once (used for grouping/ungrouping)
-  const updateNotes = useCallback((updatedNotes: Note[]) => {
-    setNotes(prevNotes => {
-      // Create a map of all existing notes by ID for quick lookup
-      const noteMap = new Map(prevNotes.map(note => [note.id, note]));
-      
-      // Update the map with the modified notes
-      updatedNotes.forEach(note => {
-        noteMap.set(note.id, note);
+  const updateNotes = useCallback(async (updatedNotes: Note[]) => {
+    if (!user) return;
+    
+    try {
+      setNotes(prevNotes => {
+        if (!Array.isArray(prevNotes) || prevNotes.length === 0) {
+          return updatedNotes;
+        }
+        
+        // Create a map of all existing notes by ID for quick lookup
+        const noteMap = new Map(prevNotes.map(note => [note.id, note]));
+        
+        // Update the map with the modified notes
+        updatedNotes.forEach(note => {
+          noteMap.set(note.id, note);
+        });
+        
+        // Convert the map back to an array
+        return Array.from(noteMap.values());
       });
       
-      // Convert the map back to an array
-      return Array.from(noteMap.values());
-    });
-  }, []);
+      // Update all notes in Supabase (create batched upsert transaction)
+      const notesForSupabase = updatedNotes.map(note => ({
+        id: note.id,
+        text: note.text,
+        x: note.x,
+        y: note.y,
+        color: note.color,
+        board_id: note.boardId,
+        group_id: note.groupId || null,
+        user_id: user.id
+      }));
+      
+      const { error } = await supabase
+        .from('notes')
+        .upsert(notesForSupabase);
+        
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to update notes:', error);
+    }
+  }, [user]);
 
   return {
     notes: boardNotes, // Only return notes for the active board

@@ -56,7 +56,7 @@ export function BoardTabs({
   return (
     <>
       <div className={styles.tabsContainer}>
-        {boards.map(board => (
+        {boards.slice(0, 6).map(board => (
           <button
             key={board.id}
             className={`${styles.tab} ${board.id === activeBoardId ? styles.active : ''}`}
@@ -74,7 +74,7 @@ export function BoardTabs({
                 style={{ width: '100px', background: 'transparent', border: 'none', color: 'white' }}
               />
             ) : (
-              board.name
+              <span className={styles.tabName}>{board.name}</span>
             )}
             {boards.length > 1 && (
               <button
@@ -98,7 +98,6 @@ export function BoardTabs({
           +
         </button>
       </div>
-      <div className={styles.spacer}></div>
     </>
   );
 }

@@ -4,29 +4,29 @@
   border-bottom: 1px solid #555;
   padding: 0 5px;
   overflow-x: auto;
-  max-width: 100%;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  height: 41px;
   z-index: 100;
+  align-items: center;
+  box-sizing: border-box; /* Include padding in width calculation */
+  flex: 1 1 auto; /* Allow growing, shrinking, and base on content */
 }
 
 .tab {
-  padding: 10px 15px;
-  margin: 0 3px;
+  padding: 8px 12px;
+  margin: 0 2px;
   background-color: #444;
   border: none;
   border-bottom: 3px solid transparent;
   color: #ccc;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s ease;
   white-space: nowrap;
   display: flex;
   align-items: center;
   border-radius: 5px 5px 0 0;
   position: relative;
+  height: 28px; /* Fixed height for consistent sizing */
 }
 
 .tab:hover {
@@ -44,16 +44,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 15px;
-  margin: 0 3px;
+  padding: 8px 12px;
+  margin: 0 2px;
   background-color: #555;
   border: none;
   color: #ffd700;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
   transition: all 0.2s ease;
   border-radius: 5px 5px 0 0;
+  height: 28px; /* Fixed height for consistent sizing */
 }
 
 .addButton:hover {
@@ -79,8 +80,9 @@
   background-color: rgba(255, 0, 0, 0.5);
 }
 
-/* Make space for the tabs at the top of the screen */
-.spacer {
-  height: 50px;
-  width: 100%;
+.tabName {
+  max-width: 90px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
