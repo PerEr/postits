@@ -54,6 +54,12 @@ export function Board({
   // Handler for mouse down on the board (not on notes)
   const handleBoardMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     console.log('Board onMouseDown triggered');
+    
+    // Allow right-click events to propagate up for panning
+    if (e.button === 2) {
+      return; // Let the event bubble up for panning
+    }
+    
     // Only start area selection with left mouse button
     if (e.button === 0) {
       console.log('Area selection start detected');
@@ -65,19 +71,24 @@ export function Board({
       
       console.log('Starting area selection at board coordinates:', { x, y });
       onStartAreaSelection(x, y);
+      
+      // Don't stop propagation to allow panning when needed
     }
   };
   
   // Handler for mouse move during area selection
   const handleBoardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    console.log('Board onMouseMove triggered');
+    // Only handle mouse move if we're selecting
     if (selectionArea?.isSelecting) {
+      console.log('Area selection update');
       // Get board-relative coordinates
       const rect = e.currentTarget.getBoundingClientRect();
       const x = (e.clientX - rect.left) / boardZoom;
       const y = (e.clientY - rect.top) / boardZoom;
       
       onUpdateAreaSelection(x, y);
+      
+      // Don't stop propagation for mouse move events
     }
   };
   
@@ -86,6 +97,9 @@ export function Board({
     console.log('Board onMouseUp triggered');
     if (selectionArea?.isSelecting) {
       onCompleteAreaSelection(e.shiftKey || e.ctrlKey || e.metaKey);
+      
+      // Only stop propagation if we're completing a selection
+      e.stopPropagation();
     }
   };
   
@@ -94,7 +108,8 @@ export function Board({
       className={styles.board}
       style={{ 
         transform: `translate(${boardOffset.x}px, ${boardOffset.y}px) scale(${boardZoom})`,
-        transformOrigin: '0 0'
+        transformOrigin: '0 0',
+        pointerEvents: 'auto' // Ensure events are captured
       }}
       onDoubleClick={onDoubleClick}
       onWheel={onWheel}

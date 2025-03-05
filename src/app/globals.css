@@ -21,6 +21,12 @@ input, button, textarea, select {
   opacity: 1 !important;
 }
 
+/* Panning cursor */
+body.panning,
+body.panning * {
+  cursor: grabbing !important;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

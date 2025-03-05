@@ -224,7 +224,7 @@ export default function Home() {
         }
       }}
       onMouseDown={(e) => {
-        console.log('Main onMouseDown triggered');
+        console.log('Main onMouseDown triggered', e.button);
         
         // Handle area selection or panning based on mouse button
         if (e.button === 0) {  // Left click
@@ -240,8 +240,10 @@ export default function Home() {
             startAreaSelection(x, y);
           }
         } else if (e.button === 2) {  // Right click
-          // Use right click for panning
+          // Use right click for panning - always allow panning regardless of target
           handlePanStart(e);
+          // Prevent default right-click behavior
+          e.preventDefault();
         }
       }}
       onDoubleClick={handleDoubleClick}

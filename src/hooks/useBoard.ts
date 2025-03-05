@@ -13,11 +13,14 @@ export function useBoard(isBrowser: boolean, boardState: BoardState, onBoardStat
   // Start panning the board - but only with right mouse button (button 2)
   const handlePanStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     // Only start panning on right mouse button (button 2)
-    if (e.button === 2 && e.target === e.currentTarget) {
+    if (e.button === 2) {
       console.log('Pan start detected with right mouse button');
       setIsPanning(true);
       setPanStart({ x: e.clientX, y: e.clientY });
       e.preventDefault();
+      
+      // Add class to body for cursor change
+      document.body.classList.add('panning');
     }
   }, []);
 
@@ -43,6 +46,9 @@ export function useBoard(isBrowser: boolean, boardState: BoardState, onBoardStat
   // Stop panning
   const handlePanEnd = useCallback(() => {
     setIsPanning(false);
+    
+    // Remove panning class from body
+    document.body.classList.remove('panning');
   }, []);
 
   // Test function to move the board
