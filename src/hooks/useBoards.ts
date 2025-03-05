@@ -28,6 +28,23 @@ export function useBoards(isBrowser: boolean) {
     };
   }, [user]);
 
+  // Helper function to create a board in Supabase
+  const createBoardInSupabase = useCallback(async (board: Board) => {
+    if (!user) return;
+    
+    const { error } = await supabase
+      .from('boards')
+      .insert({
+        id: board.id,
+        name: board.name,
+        state: board.state as unknown as any,
+        created_at: new Date(board.createdAt).toISOString(),
+        user_id: user.id
+      });
+      
+    if (error) throw error;
+  }, [user]);
+
   // Load boards from Supabase on initial render
   useEffect(() => {
     async function loadBoards() {
@@ -69,7 +86,7 @@ export function useBoards(isBrowser: boolean) {
           const mappedBoards: Board[] = boardsData.map(board => ({
             id: board.id,
             name: board.name,
-            state: board.state as BoardState,
+            state: board.state as unknown as BoardState,
             createdAt: new Date(board.created_at).getTime()
           }));
           
@@ -113,24 +130,7 @@ export function useBoards(isBrowser: boolean) {
     }
 
     loadBoards();
-  }, [isBrowser, user, createNewBoard]);
-
-  // Helper function to create a board in Supabase
-  const createBoardInSupabase = async (board: Board) => {
-    if (!user) return;
-    
-    const { error } = await supabase
-      .from('boards')
-      .insert({
-        id: board.id,
-        name: board.name,
-        state: board.state,
-        created_at: new Date(board.createdAt).toISOString(),
-        user_id: user.id
-      });
-      
-    if (error) throw error;
-  };
+  }, [isBrowser, user, createNewBoard, createBoardInSupabase]);
 
   // Add a new board
   const addBoard = useCallback(async () => {
@@ -152,7 +152,7 @@ export function useBoards(isBrowser: boolean) {
       console.error('Failed to add board:', error);
       return '';
     }
-  }, [boards.length, createNewBoard, user]);
+  }, [boards.length, createNewBoard, user, createBoardInSupabase]);
 
   // Delete a board
   const deleteBoard = useCallback(async (boardId: string) => {
@@ -244,7 +244,7 @@ export function useBoards(isBrowser: boolean) {
       try {
         const { error } = await supabase
           .from('boards')
-          .update({ state: newState })
+          .update({ state: newState as unknown as any })
           .eq('id', boardId)
           .eq('user_id', user.id);
           

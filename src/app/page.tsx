@@ -200,7 +200,7 @@ export default function Home() {
         <>
         <main 
           className={styles.main} 
-        onMouseMove={(e) => {
+        onMouseMove={(e: React.MouseEvent<HTMLDivElement>) => {
         handleDrag(e);
         handlePan(e);
         
@@ -214,7 +214,7 @@ export default function Home() {
           updateAreaSelection(x, y);
         }
       }}
-      onMouseUp={(e) => {
+      onMouseUp={(e: React.MouseEvent<HTMLDivElement>) => {
         handleDragEnd();
         handlePanEnd();
         
@@ -223,7 +223,7 @@ export default function Home() {
           completeAreaSelection(e.shiftKey || e.ctrlKey || e.metaKey);
         }
       }}
-      onMouseDown={(e) => {
+      onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
         console.log('Main onMouseDown triggered', e.button);
         
         // Handle area selection or panning based on mouse button

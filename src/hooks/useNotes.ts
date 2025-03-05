@@ -20,6 +20,27 @@ export function useNotes(isBrowser: boolean, activeBoardId: string) {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
+  // Helper function to add a note to Supabase
+  const addNoteToSupabase = useCallback(async (note: Note) => {
+    if (!user) return;
+    
+    const { error } = await supabase
+      .from('notes')
+      .insert({
+        id: note.id,
+        text: note.text,
+        x: note.x,
+        y: note.y,
+        color: note.color,
+        board_id: note.boardId,
+        group_id: note.groupId || null,
+        user_id: user.id,
+        created_at: new Date().toISOString()
+      });
+      
+    if (error) throw error;
+  }, [user]);
+
   // Load notes from Supabase on initial render or when active board changes
   useEffect(() => {
     async function loadNotes() {
@@ -83,27 +104,6 @@ export function useNotes(isBrowser: boolean, activeBoardId: string) {
     ? notes.filter(note => note.boardId === activeBoardId) 
     : [];
 
-  // Helper function to add a note to Supabase
-  const addNoteToSupabase = async (note: Note) => {
-    if (!user) return;
-    
-    const { error } = await supabase
-      .from('notes')
-      .insert({
-        id: note.id,
-        text: note.text,
-        x: note.x,
-        y: note.y,
-        color: note.color,
-        board_id: note.boardId,
-        group_id: note.groupId || null,
-        user_id: user.id,
-        created_at: new Date().toISOString()
-      });
-      
-    if (error) throw error;
-  };
-
   const addNote = useCallback(async (x: number, y: number, color = NOTE_COLORS[0]) => {
     if (!user || !activeBoardId) return;
     
@@ -135,7 +135,7 @@ export function useNotes(isBrowser: boolean, activeBoardId: string) {
           ? prevNotes.filter(note => note.id !== Date.now())
           : []);
     }
-  }, [activeBoardId, user]);
+  }, [activeBoardId, user, addNoteToSupabase]);
 
   // Debounced updates to Supabase to prevent too many requests
   const updateNoteInSupabase = useCallback(async (note: Note) => {
